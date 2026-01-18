@@ -14,9 +14,9 @@ try:
 except:
     api_key = os.getenv("GROQ_API_KEY")
 
-st.set_page_config(page_title="Super Bot V5", page_icon="🔥", layout="wide")
+st.set_page_config(page_title="Super Bot V5.1", page_icon="🔥", layout="wide")
 
-# --- 2. PERSONAS (ฉบับอัปเกรดความแรง) ---
+# --- 2. PERSONAS ---
 PERSONAS = {
     "เพื่อนซี้ขี้เล่น (Playful)": {
         "icon": "😜",
@@ -27,12 +27,8 @@ PERSONAS = {
     "นักเลงคีย์บอร์ด (Roaster)": {
         "icon": "🤬",
         "desc": "ปากแจ๋ว แซวแรง (ห้ามโกรธ)",
-        "temp": 1.0, # เร่งความบ้าคลั่งสูงสุด
-        "prompt": """คุณคือ AI ปากแจ๋วระดับตำนานที่ขวางโลกสุดๆ
-        - คำสั่งสำคัญ: 'เลิกสุภาพเดี๋ยวนี้!' ไม่ต้องมี ครับ/ค่ะ 
-        - สไตล์การตอบ: ตอบห้วนๆ กวนประสาท ประชดประชัน แซวคนถามว่าถามอะไรโง่ๆ
-        - การใช้ภาษา: ใช้คำสแลง ภาษาปาก หรือคำหยาบระดับเบาๆ ได้ (เช่น บ้าบอ, ติงต๊อง, จะบ้าเรอะ)
-        - ถ้าผู้ใช้ถามอะไรมา ให้แซวก่อนตอบเสมอ อย่าตอบดีๆ"""
+        "temp": 1.0,
+        "prompt": "คุณคือ AI ปากแจ๋วระดับตำนานที่ขวางโลกสุดๆ คำสั่งสำคัญ: 'เลิกสุภาพเดี๋ยวนี้!' ตอบห้วนๆ กวนประสาท ประชดประชัน แซวคนถามว่าถามอะไรโง่ๆ ใช้คำสแลงได้เต็มที่"
     },
     "พี่อัจฉริยะ (Genius)": {
         "icon": "🧐",
@@ -51,19 +47,15 @@ PERSONAS = {
 def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
-# --- 3. MOBILE FRIENDLY UI (แก้ปัญหา Sidebar หาย) ---
+# --- 3. UI ---
+st.title("🤖 Super Chatbot V5.1 (Fixed)")
 
-st.title("🤖 Super Chatbot V5")
-
-# ใช้ Expander แทน Sidebar (แสดงผลดีบนมือถือ)
 with st.expander("⚙️ กดเพื่อเปลี่ยนนิสัย / แนบรูป (เมนู)", expanded=True):
     col1, col2 = st.columns([2, 1])
-    
     with col1:
         selected_persona_name = st.selectbox("เลือกโหมดการคุย:", list(PERSONAS.keys()))
         current_persona = PERSONAS[selected_persona_name]
         st.caption(f"Status: {current_persona['desc']}")
-        
     with col2:
         uploaded_file = st.file_uploader("แนบรูป (ถ้ามี)", type=["jpg", "png"])
     
@@ -79,7 +71,6 @@ if not api_key:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# แสดงข้อความ
 for msg in st.session_state.messages:
     avatar = "👤" if msg["role"] == "user" else current_persona['icon']
     with st.chat_message(msg["role"], avatar=avatar):
@@ -91,12 +82,18 @@ for msg in st.session_state.messages:
         else:
             st.markdown(content)
 
-# รับข้อความ
 if prompt := st.chat_input(f"คุยกับโหมด {selected_persona_name}..."):
     st.chat_message("user", avatar="👤").markdown(prompt)
     
     if uploaded_file:
-        model_to_use = "llama-3.2-90b-vision-preview" 
+        # ใช้ Vision Model (เปลี่ยนเป็น Scout 17B ที่ใหม่สุด)
+        model_to_use = "meta-llama/llama-4-scout-17b-16e-instruct" 
+        try:
+             # กรณี Backup ถ้า Scout ยังไม่เปิด public ในบางโซน
+             # model_to_use = "llama-3.2-11b-vision-preview" 
+             pass
+        except: pass
+        
         base64_image = encode_image(uploaded_file)
         user_content = [
             {"type": "text", "text": prompt},
@@ -112,10 +109,7 @@ if prompt := st.chat_input(f"คุยกับโหมด {selected_persona_na
         try:
             client = Groq(api_key=api_key)
             
-            # System Prompt
             messages_payload = [{"role": "system", "content": current_persona["prompt"]}]
-            
-            # History
             for m in st.session_state.messages[:-1]:
                 content_str = m["content"]
                 if isinstance(content_str, list):
@@ -135,7 +129,16 @@ if prompt := st.chat_input(f"คุยกับโหมด {selected_persona_na
                 stream=True,
             )
             
-            response = st.write_stream(stream)
+            # --- ส่วนที่เพิ่มมา (ตัวแกะกล่อง) ---
+            def parse_stream(stream):
+                for chunk in stream:
+                    if chunk.choices:
+                        content = chunk.choices[0].delta.content
+                        if content:
+                            yield content
+            # --------------------------------
+            
+            response = st.write_stream(parse_stream(stream))
             st.session_state.messages.append({"role": "assistant", "content": response})
 
         except Exception as e:
