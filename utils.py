@@ -4,11 +4,8 @@ import PyPDF2
 from gtts import gTTS
 import io
 from groq import Groq
-# 🔥 เรียกใช้ไลบรารีใหม่
-from huggingface_hub import InferenceClient
-import os
 
-# --- 1. เครื่องมือจัดการไฟล์ (เหมือนเดิม) ---
+# --- 1. เครื่องมือจัดการไฟล์ ---
 def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
@@ -25,12 +22,7 @@ def extract_file(uploaded_file):
             return uploaded_file.getvalue().decode("utf-8")
     except: return "อ่านไฟล์ไม่ได้"
 
-def stream_parser(stream):
-    for chunk in stream:
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
-
-# --- 2. ฟังก์ชัน "หูทิพย์" (เหมือนเดิม) ---
+# --- 2. ฟังก์ชัน "หูทิพย์" (Transcribe) ---
 def transcribe_audio(audio_bytes, api_key):
     try:
         client = Groq(api_key=api_key)
@@ -46,7 +38,7 @@ def transcribe_audio(audio_bytes, api_key):
     except Exception as e:
         return None
 
-# --- 3. ฟังก์ชัน "ปากแจ๋ว" (เหมือนเดิม) ---
+# --- 3. ฟังก์ชัน "ปากแจ๋ว" (TTS) ---
 def text_to_speech(text, lang='th'):
     try:
         tts = gTTS(text=text, lang=lang, slow=False)
@@ -55,25 +47,4 @@ def text_to_speech(text, lang='th'):
         audio_fp.seek(0)
         return audio_fp
     except Exception as e:
-        return None
-
-# --- 4. 🔥 ฟังก์ชัน "จิตรกรเทพ (Hugging Face)" 🔥 ---
-def generate_image_huggingface(prompt, api_token):
-    """สร้างรูปภาพโดยใช้ Hugging Face Inference API (Stable Diffusion XL)"""
-    try:
-        # ใช้โมเดลฟรีตัวเทพ
-        model_id = "stabilityai/stable-diffusion-xl-base-1.0"
-        client = InferenceClient(model=model_id, token=api_token)
-
-        # เรียกให้วาดรูป
-        image = client.text_to_image(prompt)
-        
-        # แปลงรูปภาพที่ได้เป็นรหัส base64 เพื่อส่งกลับไปแสดง
-        buffered = io.BytesIO()
-        image.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-        
-        return img_str
-    except Exception as e:
-        print(f"Hugging Face Error: {e}")
         return None

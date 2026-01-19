@@ -1,0 +1,26 @@
+{
+    "id": "46a474ac-824b-4351-9d86-9f6c3db898b7",
+    "title": "หมาสีขาว...",
+    "timestamp": "2026-01-20T01:22:17.087144",
+    "messages": [
+        {
+            "role": "user",
+            "content": "หมาสีขาว"
+        },
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "**วาดเสร็จแล้วครับ!** 🎨✨\n*Prompt: หมาสีขาว*"
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://pollinations.ai/p/%E0%B8%AB%E0%B8%A1%E0%B8%B2%E0%B8%AA%E0%B8%B5%E0%B8%82%E0%B8%B2%E0%B8%A7?width=1024&height=768&seed=64812&model=flux-realism&nologo=true"
+                    }
+                }
+            ]
+        }
+    ]
+}

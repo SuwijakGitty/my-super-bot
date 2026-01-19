@@ -1,0 +1,26 @@
+{
+    "id": "3dd186d7-0ce1-4c38-a3b4-f0e6cdb40be3",
+    "title": "เเมวใส่เเว่น...",
+    "timestamp": "2026-01-20T01:29:43.997105",
+    "messages": [
+        {
+            "role": "user",
+            "content": "เเมวใส่เเว่น"
+        },
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "**วาดเสร็จแล้วครับ!** 🎨✨\n*(แปล: A cat wearing glasses.)*"
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://image.pollinations.ai/prompt/A%20cat%20wearing%20glasses.?seed=113852&nologo=true"
+                    }
+                }
+            ]
+        }
+    ]
+}

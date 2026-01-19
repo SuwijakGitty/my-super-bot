@@ -1,0 +1,26 @@
+{
+    "id": "23f77fe7-29d6-4e45-aedb-1afc5678c9c2",
+    "title": "แมวใส่เเว่น...",
+    "timestamp": "2026-01-20T01:24:49.949826",
+    "messages": [
+        {
+            "role": "user",
+            "content": "แมวใส่เเว่น"
+        },
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "**วาดเสร็จแล้วครับ!** 🎨✨\n*(แปล: A cat wearing glasses, with a cute and playful expression, sitting in a cozy environment with soft lighting, surrounded by minimalistic decorations, and a blurred background to emphasize the adorable feline's face and stylish eyewear.)*"
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://pollinations.ai/p/A%20cat%20wearing%20glasses%2C%20with%20a%20cute%20and%20playful%20expression%2C%20sitting%20in%20a%20cozy%20environment%20with%20soft%20lighting%2C%20surrounded%20by%20minimalistic%20decorations%2C%20and%20a%20blurred%20background%20to%20emphasize%20the%20adorable%20feline%27s%20face%20and%20stylish%20eyewear.?width=1024&height=768&seed=750813&nologo=true&model=flux"
+                    }
+                }
+            ]
+        }
+    ]
+}
