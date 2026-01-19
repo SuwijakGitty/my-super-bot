@@ -1,11 +1,11 @@
 import base64
 import pandas as pd
 import PyPDF2
-# 🔥 เพิ่ม imports สำหรับระบบเสียง
 from gtts import gTTS
 import io
-from groq import Groq
+from groq import Groq  # ต้อง Import อันนี้ด้วย ไม่งั้นจะฟังไม่ได้
 
+# --- 1. เครื่องมือจัดการไฟล์ ---
 def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
@@ -27,37 +27,37 @@ def stream_parser(stream):
         if chunk.choices and chunk.choices[0].delta.content:
             yield chunk.choices[0].delta.content
 
-# --- 🔥 ฟังก์ชันใหม่สำหรับเสียง ---
-
+# --- 2. ฟังก์ชัน "หูทิพย์" (Transcribe - ฟังเสียงคนพูด) ---
+# 🔥 อันนี้แหละครับที่หายไป! ผมเอามาคืนให้แล้ว
 def transcribe_audio(audio_bytes, api_key):
-    """แปลงเสียงที่อัดมาเป็นข้อความ (ใช้ Groq Whisper)"""
     try:
         client = Groq(api_key=api_key)
         # สร้างไฟล์เสียงจำลองในหน่วยความจำ
         audio_file = io.BytesIO(audio_bytes)
         audio_file.name = "recording.wav" # ตั้งชื่อสมมติให้มัน
 
-        # ส่งไปให้ Groq ช่วยฟัง
+        # ส่งไปให้ Groq ช่วยฟัง (Model: Whisper)
         transcription = client.audio.transcriptions.create(
             file=(audio_file.name, audio_file.read()),
-            model="whisper-large-v3", # โมเดลหูทิพย์ของ Groq (ฟรี!)
-            language="th", # บังคับให้ฟังเป็นภาษาไทย
+            model="whisper-large-v3", # หูทิพย์ภาษาไทย
+            language="th",
             response_format="text"
         )
         return transcription
     except Exception as e:
-        return f"เกิดข้อผิดพลาดในการฟัง: {e}"
+        return None
 
+# --- 3. ฟังก์ชัน "ปากแจ๋ว" (TTS - พูดตอบกลับ) ---
 def text_to_speech(text, lang='th'):
-    """แปลงข้อความกลับเป็นเสียงพูด (ใช้ Google TTS)"""
     try:
-        # สร้างเสียงจากข้อความ
+        # สร้างเสียงพูด (slow=False คือพูดเร็วปกติ)
         tts = gTTS(text=text, lang=lang, slow=False)
-        # บันทึกลงหน่วยความจำ (ไม่ต้องสร้างไฟล์จริง)
+        
+        # บันทึกลง Memory
         audio_fp = io.BytesIO()
         tts.write_to_fp(audio_fp)
-        audio_fp.seek(0) # เตรียมพร้อมเล่น
+        audio_fp.seek(0)
         return audio_fp
     except Exception as e:
-        print(f"TTS Error: {e}")
+        print(f"เกิดข้อผิดพลาดเสียง: {e}")
         return None
