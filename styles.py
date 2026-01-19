@@ -12,18 +12,14 @@ def load_css():
         
         .stApp { background-color: #ffffff; }
         .stDeployButton, [data-testid="stDecoration"], footer { display:none; }
-        
-        /* --- Sidebar --- */
         [data-testid="stSidebar"] { background-color: #f0f4f9; border-right: none; }
         
-        /* ปุ่ม History ใน Sidebar */
+        /* ปุ่ม Sidebar */
         [data-testid="stSidebar"] button {
             background-color: #ffffff !important;
             border: 1px solid #e0e3e7 !important;
             border-radius: 12px !important;
             padding: 10px 15px !important;
-            margin-bottom: 8px !important;
-            color: #444746 !important;
             text-align: left !important;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
         }
@@ -32,7 +28,7 @@ def load_css():
             background-color: #e8f0fe !important;
         }
 
-        /* --- Chat Bubble --- */
+        /* Chat Bubble */
         .stChatMessage { background-color: transparent; border: none; }
         div[data-testid="stChatMessage"]:nth-child(odd) {
             background-color: #f0f4f9; border-radius: 24px;
@@ -44,50 +40,58 @@ def load_css():
             line-height: 1.7; color: #1f1f1f;
         }
 
-        /* --- Input Bar --- */
+        /* 🔥 จัดระเบียบ INPUT BAR (แบบคลีนๆ) */
+        
+        /* 1. ขยายช่องพิมพ์ให้หลบปุ่มแนบไฟล์ */
         .stChatInputContainer textarea {
-            border-radius: 24px !important; border: 1px solid #e0e3e7 !important;
-            padding-right: 60px !important; padding-top: 15px !important;
-            background-color: #f0f4f9 !important; color: #1f1f1f !important;
-        }
-        
-        /* --- 🔥 Voice Mode ORB (ลูกแก้ว ChatGPT) --- */
-        .voice-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 60vh; /* ความสูงเกือบเต็มจอ */
-        }
-        
-        .voice-orb {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #4285f4, #0b57d0);
-            box-shadow: 0 0 40px rgba(66, 133, 244, 0.6);
-            animation: pulse 3s infinite ease-in-out;
-            margin-bottom: 30px;
-        }
-        
-        /* แอนิเมชันหายใจวูบวาบ */
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 20px rgba(66, 133, 244, 0.4); }
-            50% { transform: scale(1.1); box-shadow: 0 0 60px rgba(66, 133, 244, 0.8); }
-            100% { transform: scale(1); box-shadow: 0 0 20px rgba(66, 133, 244, 0.4); }
-        }
-        
-        .voice-status {
-            font-size: 1.5rem;
-            color: #444746;
-            font-weight: 500;
-            margin-bottom: 20px;
+            border-radius: 24px !important; 
+            border: 1px solid #e0e3e7 !important;
+            padding-right: 60px !important; /* เว้นที่ขวา */
+            padding-top: 15px !important;
+            background-color: #f0f4f9 !important; 
+            color: #1f1f1f !important;
         }
 
-        /* ซ่อน Elements เวลายุใน Voice Mode */
-        .stChatInputContainer {
-            /* เราจะซ่อน input ปกติเวลาอยู่ใน Voice Mode ด้วย Python logic */
+        /* 2. ปุ่มแนบไฟล์ (Clip) -> วางมุมขวาล่างของจอ (Fixed) */
+        /* การใช้ Fixed Position ชัวร์สุดครับ ไม่ดิ้นตาม text */
+        .stPopover {
+            position: fixed; 
+            bottom: 28px !important; 
+            right: 80px !important; /* วางข้างๆ ปุ่มส่ง */
+            z-index: 999999;
+            width: auto !important; height: auto !important;
         }
+        .stPopover button {
+            background-color: transparent !important;
+            color: #444746 !important;
+            border: none !important; 
+            width: 35px !important; height: 35px !important; 
+            font-size: 20px !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .stPopover button:hover {
+            background-color: #e0e3e7 !important;
+            color: #0b57d0 !important;
+            border-radius: 50% !important;
+        }
+
+        /* Voice Mode Styles */
+        .voice-container {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 60vh;
+        }
+        .voice-orb {
+            width: 150px; height: 150px; border-radius: 50%;
+            background: linear-gradient(135deg, #4285f4, #0b57d0);
+            box-shadow: 0 0 40px rgba(66, 133, 244, 0.6);
+            animation: pulse 3s infinite ease-in-out; margin-bottom: 30px;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); }
+        }
+        .voice-status { font-size: 1.5rem; color: #444746; font-weight: 500; }
+        .disclaimer-text { text-align: center; font-size: 12px; color: #444746; margin-top: 10px; margin-bottom: 50px; }
 
     </style>
     """, unsafe_allow_html=True)
