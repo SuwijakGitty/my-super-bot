@@ -6,216 +6,185 @@ import pandas as pd
 import PyPDF2
 from dotenv import load_dotenv
 
-# --- 1. SETUP ---
+# ==========================================
+# 1. BRAIN & CONFIG (สมองส่วนหลัก)
+# ==========================================
 load_dotenv()
 try:
-    if "GROQ_API_KEY" in st.secrets:
-        api_key = st.secrets["GROQ_API_KEY"]
-    else:
-        api_key = os.getenv("GROQ_API_KEY")
+    API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 except:
-    api_key = os.getenv("GROQ_API_KEY")
+    API_KEY = os.getenv("GROQ_API_KEY")
 
-st.set_page_config(page_title="Gemini Pro Chat", page_icon="✨", layout="wide")
+# 🔥 ฝังนิสัยเดียวที่นี่ (ฉลาด + ตอบยาว + มีคาแรคเตอร์)
+SYSTEM_PROMPT = """
+Role: คุณคือ AI ผู้ช่วยอัจฉริยะ (Senior Expert & Buddy)
+Language: ภาษาไทย (ธรรมชาติ, สุภาพแต่เป็นกันเอง, ห้ามใช้ 'คะ/ค่ะ' ให้ใช้ 'ครับ' หรือไม่มีหางเสียง)
 
-# --- 2. CSS STYLING (แก้บั๊กช่องพิมพ์) ---
+Instruction (คำสั่งสำคัญ):
+1. **ตอบให้ละเอียด (Detailed):** ห้ามตอบสั้นๆ ห้วนๆ เด็ดขาด! ต้องอธิบายที่มาที่ไป เหตุผล และยกตัวอย่างประกอบเสมอ
+2. **คิดวิเคราะห์ (Chain of Thought):** เวลาเจอคำถามยากๆ ให้แสดงกระบวนการคิด หรือแจกแจงเป็นข้อๆ (Bullet points) เพื่อให้อ่านง่าย
+3. **ความเป็นกันเอง (Tone):** ไม่ต้องทางการมาก เหมือนคุยกับรุ่นพี่ที่เก่งมากๆ ปากแจ๋วนิดๆ ได้เพื่อให้ไม่น่าเบื่อ
+4. **ถ้าเป็นโค้ด (Coding):** ต้องเขียนโค้ดที่สมบูรณ์ (Best Practice) พร้อมอธิบายการทำงานทีละส่วน
+5. **เป้าหมาย:** ทำให้ผู้ใช้รู้สึกว่า "โห... รู้ลึกจังวะ" ทุกครั้งที่ตอบ
+"""
+
+st.set_page_config(page_title="Gemini V15", page_icon="🧠", layout="wide")
+
+# ==========================================
+# 2. UI STYLE (หน้าตา)
+# ==========================================
 st.markdown("""
 <style>
-    /* พื้นหลังขาวสะอาด */
-    .stApp {
-        background-color: #ffffff;
-        color: #1f1f1f;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600&display=swap');
+    html, body, [class*="css"] { font-family: 'Noto Sans Thai', sans-serif; }
     
-    /* ซ่อน Header/Footer */
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* --- ปุ่มแนบไฟล์ (Fixed Position) --- */
-    /* แก้ไข: ใส่ width: fit-content เพื่อไม่ให้กล่องล่องหนไปบังช่องพิมพ์ */
-    .stPopover {
-        position: fixed;
-        bottom: 80px;      /* อยู่เหนือช่องพิมพ์ */
-        right: 30px;       /* ย้ายมาขวา (จะได้ไม่บัง User พิมพ์) */
-        z-index: 9999;
-        width: fit-content !important; /* สำคัญมาก! แก้บั๊กกดไม่ได้ */
+    footer {visibility: hidden;} .stDeployButton {display:none;}
+    .stApp {background-color: #ffffff;}
+
+    /* Chat Bubble */
+    .stChatMessage { background-color: transparent; border: none; }
+    div[data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: #eff3f8; border-radius: 20px;
+        padding: 15px 25px; margin-bottom: 15px; color: #1f1f1f;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* เพิ่มเงาให้นูนสวย */
+        line-height: 1.6; /* เพิ่มระยะบรรทัดให้อ่านง่ายสำหรับข้อความยาวๆ */
     }
-    
-    /* แต่งปุ่มให้สวย */
-    .stPopover button {
-        background-color: #f0f4f9 !important;
-        color: #444746 !important;
-        border: none !important;
-        border-radius: 50% !important;
-        width: 50px !important;
-        height: 50px !important;
-        font-size: 20px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    .stPopover button:hover {
-        background-color: #d3e3fd !important;
-        color: #0b57d0 !important;
+    div[data-testid="stChatMessage"]:nth-child(even) {
+        background-color: transparent; padding: 0px 10px; margin-bottom: 15px;
+        line-height: 1.6;
     }
 
-    /* --- Chat Bubble --- */
-    .stChatMessage {
-        background-color: transparent;
-        border: none;
+    /* Floating Button (ขวาล่าง) */
+    .stPopover {
+        position: fixed; bottom: 85px; right: 30px; z-index: 999999;
+        width: auto !important; height: auto !important; display: inline-block !important;
     }
-    /* User Message */
-    div[data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #e3f2fd; 
-        border-radius: 20px;
-        padding: 1rem;
-        margin-bottom: 10px;
-        border-bottom-right-radius: 5px;
+    .stPopover button {
+        background-color: #f0f4f9 !important; color: #444746 !important;
+        border: none !important; border-radius: 50% !important;
+        width: 55px !important; height: 55px !important; /* ใหญ่ขึ้นนิดนึง */
+        font-size: 24px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    /* Bot Message */
-    div[data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #ffffff;
-        padding: 1rem;
+    .stPopover button:hover {
+        background-color: #d3e3fd !important; color: #0b57d0 !important; transform: scale(1.1);
     }
-    
-    /* ขยับช่องพิมพ์ให้สวยงาม */
-    .stChatInputContainer {
-        padding-bottom: 20px;
-    }
+
+    /* Input Box Adjustment */
+    .stChatInputContainer textarea { padding-right: 70px !important; }
+    div[data-testid="stChatInput"] { padding-bottom: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. HELPER FUNCTIONS ---
+# ==========================================
+# 3. HELPER FUNCTIONS
+# ==========================================
 def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
-def extract_text_from_file(uploaded_file):
+def extract_file(uploaded_file):
     try:
         if "pdf" in uploaded_file.type:
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
-            return "".join([page.extract_text() for page in pdf_reader.pages])
+            pdf = PyPDF2.PdfReader(uploaded_file)
+            return "".join([p.extract_text() for p in pdf.pages])
         elif "csv" in uploaded_file.type:
             return pd.read_csv(uploaded_file).to_markdown(index=False)
-        elif "excel" in uploaded_file.type or "spreadsheet" in uploaded_file.type:
+        elif "excel" in uploaded_file.type:
             return pd.read_excel(uploaded_file).to_markdown(index=False)
         else:
             return uploaded_file.getvalue().decode("utf-8")
-    except Exception as e:
-        return f"Error reading file: {str(e)}"
+    except: return "อ่านไฟล์ไม่ได้"
 
-# --- 4. HEADER & SETTINGS ---
-col1, col2 = st.columns([9, 1])
-with col1:
-    st.caption("✨ Gemini Pro Clone")
-with col2:
-    with st.popover("⚙️", help="ตั้งค่า"):
-        mode = st.radio("Mode", ["Smart", "Creative", "Coder"])
-        if st.button("🗑️ Reset Chat", type="primary", use_container_width=True):
-            st.session_state.messages = []
-            st.rerun()
+def stream_parser(stream):
+    for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
 
-# --- 5. LOGIC & UI ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# ==========================================
+# 4. MAIN APP
+# ==========================================
+with st.sidebar:
+    st.title("🧠 Gemini Ultimate")
+    st.caption("Version 15: Deep Thinker")
+    if st.button("➕ Clear Chat", type="primary", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+    st.markdown("---")
+    st.info("💡 Tip: ถามสั้นๆ ได้ แต่บอทจะตอบยาวและละเอียดครับ")
 
-# แสดงประวัติแชท
+if "messages" not in st.session_state: st.session_state.messages = []
+
+# Welcome text
+if not st.session_state.messages:
+    st.markdown("""
+    <div style="text-align: center; margin-top: 60px;">
+        <h1 style="background: linear-gradient(to right, #0b57d0, #a142f4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            พร้อมใช้งานครับลูกพี่! 🧠
+        </h1>
+        <p style="color: gray; font-size: 1.1em;">ถามมาได้เลย เดี๋ยวผมวิเคราะห์ให้แบบเจาะลึก!</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Render Chat
 for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        with st.chat_message("user", avatar="👤"):
-            content = msg["content"]
-            if isinstance(content, list):
-                for part in content:
-                    if part["type"] == "text": st.markdown(part["text"])
-                    if part["type"] == "image_url": st.image(part["image_url"]["url"], width=200)
-            else:
-                st.markdown(content)
-    else:
-        with st.chat_message("assistant", avatar="✨"):
+    role = msg["role"]
+    avatar = "👤" if role == "user" else "🧠"
+    with st.chat_message(role, avatar=avatar):
+        if isinstance(msg["content"], list):
+            for p in msg["content"]:
+                if p["type"]=="text": st.markdown(p["text"])
+                if p["type"]=="image_url": st.image(p["image_url"]["url"], width=250)
+        else:
             st.markdown(msg["content"])
 
-# --- ปุ่มแนบไฟล์ (Floating Widget) ---
-# วางไว้ตรงนี้ แต่ CSS จะดีดมันไปมุมขวาล่าง
-with st.popover("📎"):
-    st.markdown("###### 📂 แนบไฟล์")
-    uploaded_file = st.file_uploader(
-        "Upload", 
-        type=["pdf", "csv", "xlsx", "txt", "jpg", "png"],
-        label_visibility="collapsed"
-    )
-    
-    file_content = ""
-    is_image = False
-    
-    if uploaded_file:
-        st.success(f"✅ แนบ: {uploaded_file.name}")
-        if "image" in uploaded_file.type:
-            is_image = True
-            st.image(uploaded_file, width=150)
-        else:
-            file_content = extract_text_from_file(uploaded_file)
+# File Uploader
+with st.popover("📎", help="แนบไฟล์"):
+    uploaded_file = st.file_uploader("Upload", label_visibility="collapsed")
+    file_txt = extract_file(uploaded_file) if uploaded_file and "image" not in uploaded_file.type else ""
 
-# --- CHAT INPUT ---
-if prompt := st.chat_input("พิมพ์ข้อความที่นี่..."):
-    # 1. แสดง User Message
+# Input & Logic
+if prompt := st.chat_input("พิมพ์คำถามมาเลย..."):
     st.chat_message("user", avatar="👤").markdown(prompt)
     
-    # 2. เตรียมข้อมูล
-    user_msg_obj = prompt
-    model_to_use = "llama-3.3-70b-versatile"
+    # Logic
+    user_content = prompt
+    model = "llama-3.3-70b-versatile"
     
-    # Context prompt
-    system_prompt = "คุณคือ AI ผู้ช่วยอัจฉริยะ ตอบคำถามกระชับ ชัดเจน และช่วยเหลือผู้ใช้อย่างเต็มที่"
-    if mode == "Creative": system_prompt = "คุณคือเพื่อนคู่คิดที่ความคิดสร้างสรรค์ เป็นกันเอง"
-    if mode == "Coder": system_prompt = "คุณคือโปรแกรมเมอร์ผู้เชี่ยวชาญ ตอบด้วยโค้ด"
+    # ใช้ System Prompt เดียวที่ฝังไว้เลย
+    final_instruction = SYSTEM_PROMPT
 
-    # จัดการไฟล์แนบ
     if uploaded_file:
-        if is_image:
-            model_to_use = "meta-llama/llama-4-scout-17b-16e-instruct"
-            base64_img = encode_image(uploaded_file)
-            user_msg_obj = [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-            ]
-            st.session_state.messages.append({"role": "user", "content": user_msg_obj})
+        if "image" in uploaded_file.type:
+            model = "meta-llama/llama-4-scout-17b-16e-instruct"
+            img = encode_image(uploaded_file)
+            user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]
         else:
-            system_prompt += f"\n\n[CONTEXT FROM FILE]:\n{file_content}\n\n[INSTRUCTION]: ตอบโดยอ้างอิงข้อมูลจากไฟล์"
-            st.session_state.messages.append({"role": "user", "content": prompt})
-    else:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-
-    # 3. ส่ง API
-    messages_payload = [{"role": "system", "content": system_prompt}]
-    for m in st.session_state.messages[:-1]:
-        c = m["content"]
-        if isinstance(c, list):
-            text_only = ""
-            for p in c:
-                if p["type"] == "text": text_only += p["text"]
-            messages_payload.append({"role": m["role"], "content": text_only})
-        else:
-            messages_payload.append({"role": m["role"], "content": c})
+            final_instruction += f"\n\n[ข้อมูลไฟล์แนบ]: {file_txt}\nคำสั่ง: วิเคราะห์ข้อมูลนี้อย่างละเอียดที่สุด"
     
-    messages_payload.append({"role": "user", "content": user_msg_obj})
+    st.session_state.messages.append({"role": "user", "content": user_content})
 
-    # 4. รับผลลัพธ์ (ใส่ตัวแก้ภาษาต่างดาวให้แล้ว)
-    with st.chat_message("assistant", avatar="✨"):
+    # ส่ง API
+    with st.chat_message("assistant", avatar="🧠"):
         try:
-            client = Groq(api_key=api_key)
+            client = Groq(api_key=API_KEY)
+            
+            messages = [{"role": "system", "content": final_instruction}]
+            # ย่อ History เก่าๆ เพื่อประหยัด Token แต่ยังจำได้
+            for m in st.session_state.messages[:-1]:
+                content = m["content"]
+                if isinstance(content, list):
+                    content = "".join([x["text"] for x in content if x["type"]=="text"])
+                messages.append({"role": m["role"], "content": content})
+            messages.append({"role": "user", "content": user_content})
+
             stream = client.chat.completions.create(
-                messages=messages_payload,
-                model=model_to_use,
-                temperature=0.7,
-                stream=True,
+                messages=messages, 
+                model=model, 
+                temperature=0.7,   # ลดความมั่วลงนิดนึงเพื่อให้ดูฉลาดขึ้น
+                max_tokens=6000,   # 🔥 เพิ่มโควต้าให้ตอบได้ยาวเหยียด (สะใจแน่นอน)
+                stream=True
             )
-            
-            # Generator สำหรับแกะ Text ออกจาก JSON stream
-            def parse_stream(stream):
-                for chunk in stream:
-                    if chunk.choices:
-                        content = chunk.choices[0].delta.content
-                        if content:
-                            yield content
-            
-            response = st.write_stream(parse_stream(stream))
+            response = st.write_stream(stream_parser(stream))
             st.session_state.messages.append({"role": "assistant", "content": response})
+
         except Exception as e:
             st.error(f"Error: {e}")
