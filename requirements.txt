@@ -1,6 +1,6 @@
-streamlit>=1.31.0
+streamlit
 groq
 python-dotenv
 pandas
 PyPDF2
-openpyxl
+gTTS
