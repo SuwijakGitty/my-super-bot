@@ -1,0 +1,15 @@
+{
+    "id": "c77b6ccd-10f4-48bc-a503-1471c58d0ca6",
+    "title": "เเมวน่ารัก...",
+    "timestamp": "2026-01-20T00:59:59.318994",
+    "messages": [
+        {
+            "role": "user",
+            "content": "เเมวน่ารัก"
+        },
+        {
+            "role": "assistant",
+            "content": "**วาดเสร็จแล้วครับ!** 🎨✨\n*(แปล: A cute cat)*\n\n![Generated Image](https://image.pollinations.ai/prompt/A%20cute%20cat?seed=934448&width=1024&height=768&nologo=true&model=flux)"
+        }
+    ]
+}
