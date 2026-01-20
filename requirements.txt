@@ -5,3 +5,6 @@ pandas
 gTTS
 python-docx
 pdfplumber
+youtube-transcript-api
+duckduckgo-search
+yt-dlp
