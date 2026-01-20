@@ -4,4 +4,4 @@ python-dotenv
 pandas
 PyPDF2
 gTTS
-python-docx   <-- เพิ่มบรรทัดนี้!
+python-docx

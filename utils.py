@@ -4,33 +4,29 @@ import PyPDF2
 from gtts import gTTS
 import io
 from groq import Groq
-import docx  # <-- เรียกใช้ไลบรารีอ่าน Word
+import docx
 
-# --- 1. เครื่องมือจัดการไฟล์ ---
+# --- 1. เครื่องมือจัดการไฟล์ (เพิ่มอ่าน Word แล้ว) ---
 def encode_image(uploaded_file):
     return base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
 
 def extract_file(uploaded_file):
     try:
-        # กรณีไฟล์ PDF
+        # PDF
         if "pdf" in uploaded_file.type:
             pdf = PyPDF2.PdfReader(uploaded_file)
             return "".join([p.extract_text() for p in pdf.pages])
-        
-        # กรณีไฟล์ CSV
+        # CSV
         elif "csv" in uploaded_file.type:
             return pd.read_csv(uploaded_file).to_markdown(index=False)
-        
-        # กรณีไฟล์ Excel
+        # Excel
         elif "excel" in uploaded_file.type or "spreadsheet" in uploaded_file.type:
             return pd.read_excel(uploaded_file).to_markdown(index=False)
-            
-        # 🔥 กรณีไฟล์ Word (.docx) - เพิ่มใหม่ตรงนี้!
+        # Word (.docx)
         elif "docx" in uploaded_file.name or "word" in uploaded_file.type:
             doc = docx.Document(uploaded_file)
             return "\n".join([para.text for para in doc.paragraphs])
-            
-        # กรณีไฟล์ Text ทั่วไป
+        # Text
         else:
             return uploaded_file.getvalue().decode("utf-8")
     except Exception as e: 
