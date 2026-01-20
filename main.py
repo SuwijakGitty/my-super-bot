@@ -71,6 +71,7 @@ with st.sidebar:
 # 🔥 MODE 1: VOICE MODE
 # ==========================================
 if st.session_state.voice_mode:
+    # (ส่วน Voice Mode เหมือนเดิม)
     st.markdown("""<div class="voice-container"><div class="voice-orb"></div><div class="voice-status">แตะไมค์แล้วพูดได้เลย...</div></div>""", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -105,14 +106,15 @@ if st.session_state.voice_mode:
 # 🔥 MODE 2: CHAT MODE (ปกติ)
 # ==========================================
 else:
-    # Welcome Screen
+    # 1. Header
     if not st.session_state.messages:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             try: st.image("logo.png", width=120, use_column_width=False, style={"display": "block", "margin-left": "auto", "margin-right": "auto"})
             except: st.markdown("<h1 style='text-align: center;'>🤖</h1>", unsafe_allow_html=True)
-            st.markdown("<h1 style='text-align: center; background: linear-gradient(74deg, #4285f4 0%, #9b72cb 19%, #d96570 30%, #1f1f1f 60%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>XianBot พร้อม!</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center; background: linear-gradient(74deg, #4285f4 0%, #9b72cb 19%, #d96570 30%, #1f1f1f 60%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>XianBot Pro</h1>", unsafe_allow_html=True)
         
+        # Shortcuts
         col1, col2 = st.columns(2)
         st.markdown("""<style>div[data-testid="column"] > div > div > div > div > div > button {height: 80px; width: 100%; border-radius: 12px; text-align: left; padding-left: 20px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center;}</style>""", unsafe_allow_html=True)
         with col1:
@@ -126,7 +128,7 @@ else:
             if st.button("🍳 คิดเมนูอาหาร", key="btn4", use_container_width=True): 
                 st.session_state.messages.append({"role": "user", "content": "มีไก่ ไข่ ข้าว ทำเมนูอะไรดี?"}); st.rerun()
 
-    # Render Chat
+    # 2. Render Chat History
     for msg in st.session_state.messages:
         role = msg["role"]
         avatar = None if role == "user" else "logo.png"
@@ -138,42 +140,81 @@ else:
             else: 
                 st.markdown(msg["content"])
 
-    # File Upload
-    with st.popover("📎", help="แนบไฟล์"):
-        uploaded_file = st.file_uploader("Upload", label_visibility="collapsed")
-        file_txt = utils.extract_file(uploaded_file) if uploaded_file and "image" not in uploaded_file.type else ""
-
-    # Input Handling
-    if prompt := st.chat_input("พิมพ์ข้อความ / Type here... 😊"):
-        user_content = prompt
-        if uploaded_file:
-            if "image" in uploaded_file.type:
-                img = utils.encode_image(uploaded_file)
-                user_content = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img}"}}]
+    # 3. 🔥 File Upload Area (ย้ายมาไว้ตรงนี้ให้เห็นชัดๆ)
+    # เราใช้ Container ครอบไว้เหนือช่องแชท เพื่อจำลองความรู้สึก "แนบไฟล์"
+    with st.container():
+        # สร้างคอลัมน์เพื่อให้ปุ่มแนบไฟล์ดูดีขึ้น
+        uploaded_file = st.file_uploader("📎 แนบไฟล์ (รูปภาพ / PDF / Word / Excel / CSV)", label_visibility="collapsed")
         
+        # ตัวแปรเก็บเนื้อหาไฟล์
+        file_context = ""
+        file_image_data = None
+        
+        if uploaded_file:
+            # โชว์สถานะว่าอ่านไฟล์แล้ว
+            st.success(f"✅ แนบไฟล์: {uploaded_file.name} เรียบร้อย!")
+            
+            # ถ้าเป็นรูปภาพ -> เตรียมส่งแบบ Vision
+            if "image" in uploaded_file.type:
+                file_image_data = utils.encode_image(uploaded_file)
+            # ถ้าเป็นเอกสาร -> แกะเนื้อหาออกมาเป็น Text
+            else:
+                file_context = utils.extract_file(uploaded_file)
+
+    # 4. Input Handling
+    if prompt := st.chat_input("พิมพ์ข้อความ / Type here... 😊"):
+        
+        # เตรียมข้อความที่จะส่งให้ AI (User Message)
+        user_content = prompt
+        
+        # กรณี 1: มีรูปภาพ
+        if file_image_data:
+            user_content = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{file_image_data}"}}
+            ]
+        
+        # กรณี 2: มีไฟล์เอกสาร (PDF/Word/Excel) -> ยัดเนื้อหาลงไปใน Prompt เลย
+        elif file_context:
+            # 🔥 เทคนิค: เอาเนื้อหาไฟล์แปะต่อท้ายคำถาม user เลย บอทจะได้เห็นแน่นอน
+            full_prompt_with_context = f"{prompt}\n\n---\n[Attached File Content]:\n{file_context}"
+            # บันทึกแบบ User เห็นแค่คำถาม (แต่ AI เห็นไฟล์) - หรือจะให้เห็นไฟล์ด้วยก็ได้
+            # ในที่นี้ให้ AI เห็นเต็มๆ แต่เก็บใน History อาจจะเก็บยาวหน่อย
+            user_content = full_prompt_with_context
+
+        # บันทึกและแสดงผล
         st.session_state.messages.append({"role": "user", "content": user_content})
         st.rerun()
 
-    # AI Chat Logic
+    # 5. AI Chat Logic
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         
-        system_instruction = config.SYSTEM_PROMPT
         last_msg = st.session_state.messages[-1]
-        if uploaded_file and "image" not in uploaded_file.type: system_instruction += f"\n\n[Context]: {file_txt}"
-
+        
         with st.chat_message("assistant", avatar="logo.png"):
             try:
                 client = Groq(api_key=api_key)
-                msgs = [{"role": "system", "content": system_instruction}]
+                # System Prompt พื้นฐาน
+                msgs = [{"role": "system", "content": config.SYSTEM_PROMPT}]
+                
+                # ดึงประวัติการคุย
                 for m in st.session_state.messages[-10:-1]:
                     c = m["content"]
                     if isinstance(c, list): c = "".join([x["text"] for x in c if x["type"]=="text"])
                     msgs.append({"role": m["role"], "content": c})
-                msgs.append({"role": "user", "content": last_msg["content"]})
                 
-                model = "llama-3.3-70b-versatile"
-                if isinstance(last_msg["content"], list): model = "meta-llama/llama-4-scout-17b-16e-instruct"
+                # ข้อความล่าสุด (ที่มีเนื้อหาไฟล์ผสมอยู่แล้ว)
+                current_content = last_msg["content"]
+                if isinstance(current_content, list): 
+                    # ถ้าเป็นรูปภาพ ต้องส่งแบบ List
+                    msgs.append({"role": "user", "content": current_content})
+                    model = "llama-3.2-90b-vision-preview" # 🔥 ใช้โมเดล Vision ถ้ามีรูป
+                else:
+                    # ถ้าเป็น Text (รวมถึง Text ที่แกะจากไฟล์แล้ว)
+                    msgs.append({"role": "user", "content": current_content})
+                    model = "llama-3.3-70b-versatile"
 
+                # ยิง API
                 stream = client.chat.completions.create(messages=msgs, model=model, temperature=0.7, max_tokens=4000, stream=True)
                 
                 text_box = st.empty()

@@ -2,6 +2,6 @@ streamlit
 groq
 python-dotenv
 pandas
-PyPDF2
 gTTS
 python-docx
+pdfplumber
