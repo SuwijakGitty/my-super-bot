@@ -4,4 +4,3 @@ python-dotenv
 pandas
 PyPDF2
 gTTS
-huggingface_hub  <-- เพิ่มบรรทัดนี้!
