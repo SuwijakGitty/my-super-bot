@@ -60,7 +60,8 @@ with st.sidebar:
         for chat in saved_chats:
             col1, col2 = st.columns([0.85, 0.15])
             with col1:
-                 if st.button((chat["title"][:18]+'..') if len(chat["title"])>18 else chat["title"], key=chat["id"], use_container_width=True):
+                 # 🔥 ของใหม่: โชว์ชื่อเต็มๆ สวยๆ
+                 if st.button(chat["title"], key=chat["id"], use_container_width=True):
                     st.session_state.session_id = chat["id"]
                     st.session_state.messages = history.load_chat(chat["id"])
                     st.rerun()
@@ -171,8 +172,9 @@ else:
         st.session_state.messages.append({"role": "user", "content": real_payload, "display": display_payload})
         st.rerun()
 
-    # 5. AI Reply
+   # 5. AI Response
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+        
         with st.chat_message("assistant", avatar="logo.png"):
             try:
                 client = Groq(api_key=api_key)
@@ -188,7 +190,11 @@ else:
                 last_msg = st.session_state.messages[-1]["content"]
                 msgs.append({"role": "user", "content": last_msg})
                 
-                model = "llama-3.2-90b-vision-preview" if isinstance(last_msg, list) else "llama-3.3-70b-versatile"
+                # 🔥 แก้ตรงนี้: ใช้โมเดล Llama 4 Scout (ตัวใหม่ล่าสุด)
+                if isinstance(last_msg, list):
+                    model = "meta-llama/llama-4-scout-17b-16e-instruct"
+                else:
+                    model = "llama-3.3-70b-versatile"
                 
                 stream = client.chat.completions.create(messages=msgs, model=model, temperature=0.7, max_tokens=4000, stream=True)
                 text_box = st.empty()
