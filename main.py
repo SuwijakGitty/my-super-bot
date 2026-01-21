@@ -13,55 +13,67 @@ config.setup_page()
 styles.load_css()
 api_key = config.get_api_key()
 
-# 2. Session
+# 2. Session State
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "voice_mode" not in st.session_state:
     st.session_state.voice_mode = False
+if "current_persona" not in st.session_state:
+    st.session_state.current_persona = "🤖 ผู้ช่วยทั่วไป (General)"
 
 # 3. Sidebar
 with st.sidebar:
     col_logo, col_title = st.columns([0.3, 0.7])
     with col_logo:
-        try: st.image("logo.png", width=60)
+        try: st.image("logo.png", width=50)
         except: st.write("🤖")
     with col_title:
         st.markdown("## XianBot")
 
     st.markdown("---")
-    if not st.session_state.voice_mode:
-        with st.expander("💡 วิธีใช้ (New!)"):
-            st.markdown("""
-            - **สรุป YouTube:** แปะลิงก์คลิป (ถ้าไม่มีซับ ต้องมี ffmpeg.exe)
-            - **ค้นหา:** พิมพ์ `/search` ตามด้วยคำถาม
-            """)
+    
+    # 🔥 1. Persona Selector (เลือกนิสัย)
+    st.markdown("### 🎭 เลือกนิสัยบอท")
+    selected_persona = st.selectbox(
+        "เลือกโหมด:",
+        list(config.PERSONAS.keys()),
+        index=list(config.PERSONAS.keys()).index(st.session_state.current_persona),
+        label_visibility="collapsed"
+    )
+    # ถ้าเปลี่ยนนิสัย ให้บันทึกและแจ้งเตือน
+    if selected_persona != st.session_state.current_persona:
+        st.session_state.current_persona = selected_persona
+        st.toast(f"เปลี่ยนโหมดเป็น: {selected_persona}")
+
     st.markdown("---")
     
+    # Mode Toggle
     if st.session_state.voice_mode:
-        if st.button("💬 กลับไปหน้าแชท", type="primary", use_container_width=True):
+        if st.button("💬 กลับไปแชท", type="primary", use_container_width=True):
             st.session_state.voice_mode = False
             st.rerun()
     else:
-        if st.button("🎙️ เข้าโหมดเสียง (Voice Mode)", type="secondary", use_container_width=True):
+        if st.button("🎙️ โหมดเสียง", type="secondary", use_container_width=True):
             st.session_state.voice_mode = True
             st.rerun()
-    
+
     st.markdown("---")
+    
+    # History
     if not st.session_state.voice_mode:
         if st.button("➕ New Chat", use_container_width=True):
             st.session_state.session_id = str(uuid.uuid4())
             st.session_state.messages = []
             st.rerun()
+        
         st.caption("Recent Chats")
-        # (ส่วน History โค้ดเดิม)
         saved_chats = history.get_chat_history_list()
         for chat in saved_chats:
             col1, col2 = st.columns([0.85, 0.15])
             with col1:
-                 # 🔥 ของใหม่: โชว์ชื่อเต็มๆ สวยๆ
-                 if st.button(chat["title"], key=chat["id"], use_container_width=True):
+                if st.button(chat["title"], key=chat["id"], use_container_width=True):
                     st.session_state.session_id = chat["id"]
                     st.session_state.messages = history.load_chat(chat["id"])
                     st.rerun()
@@ -74,137 +86,136 @@ with st.sidebar:
                     st.rerun()
 
 # ==========================================
-# 🔥 MAIN APP LOGIC
+# 🔥 MAIN LOGIC
 # ==========================================
+
+# --- A. VOICE MODE ---
 if st.session_state.voice_mode:
     st.markdown("""<div class="voice-container"><div class="voice-orb"></div><div class="voice-status">แตะไมค์แล้วพูดได้เลย...</div></div>""", unsafe_allow_html=True)
+    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        audio_input = st.audio_input("แตะเพื่อพูด", label_visibility="collapsed")
+        audio_input = st.audio_input("Speak", label_visibility="collapsed")
     
     if audio_input:
         transcript = utils.transcribe_audio(audio_input.getvalue(), api_key)
         if transcript:
-            # (Logic Voice Mode เหมือนเดิม)
             client = Groq(api_key=api_key)
-            msgs = [{"role": "system", "content": config.SYSTEM_PROMPT}]
+            # ใช้ Prompt ตามนิสัยที่เลือก
+            system_prompt = config.PERSONAS[st.session_state.current_persona] + "\n(ตอบสั้นๆ เพราะคุยเสียง)"
+            
+            msgs = [{"role": "system", "content": system_prompt}]
+            for m in st.session_state.messages[-4:]:
+                c = m.get("display", m["content"])
+                if isinstance(c, str): msgs.append({"role": m["role"], "content": c})
             msgs.append({"role": "user", "content": transcript})
+
             try:
-                chat_completion = client.chat.completions.create(messages=msgs, model="llama-3.3-70b-versatile", temperature=0.7, max_tokens=1000)
-                response_text = chat_completion.choices[0].message.content
-                st.session_state.messages.append({"role": "user", "content": transcript})
-                st.session_state.messages.append({"role": "assistant", "content": response_text})
+                resp = client.chat.completions.create(messages=msgs, model="llama-3.3-70b-versatile").choices[0].message.content
+                st.session_state.messages.append({"role": "user", "content": transcript, "display": transcript})
+                st.session_state.messages.append({"role": "assistant", "content": resp})
                 history.save_chat(st.session_state.session_id, st.session_state.messages)
-                audio_fp = utils.text_to_speech(response_text)
-                if audio_fp: st.audio(audio_fp, format='audio/wav', autoplay=True)
+                utils.text_to_speech(resp)
             except Exception as e: st.error(f"Error: {e}")
 
+# --- B. CHAT MODE ---
 else:
-    # 1. Header
+    # 1. Logo
     if not st.session_state.messages:
-        try: st.image("logo.png", width=120) 
-        except: st.markdown("# 🤖")
-        st.markdown("<h1 style='text-align: center;'>XianBot Pro</h1>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1.5, 1, 1.5])
+        with c2:
+            try: st.image("logo.png")
+            except: st.markdown("# 🤖")
+        st.markdown(f"<h3 style='text-align: center; color: #666;'>XianBot Pro<br><span style='font-size: 0.6em; color: #888;'>Mode: {st.session_state.current_persona}</span></h3>", unsafe_allow_html=True)
 
-    # 2. Render Chat
+    # 2. History
     for msg in st.session_state.messages:
-        role = msg["role"]
-        avatar = None if role == "user" else "logo.png"
-        with st.chat_message(role, avatar=avatar):
-            content = msg["content"]
-            # ถ้ามี content ที่ซ่อนอยู่ (สำหรับการแสดงผล)
-            display_text = msg.get("display", content)
-            
-            if isinstance(display_text, list):
-                for p in display_text:
+        with st.chat_message(msg["role"], avatar="logo.png" if msg["role"] == "assistant" else None):
+            d = msg.get("display", msg["content"])
+            if isinstance(d, list): 
+                for p in d:
                     if p["type"]=="text": st.markdown(p["text"])
-                    if p["type"]=="image_url": st.image(p["image_url"]["url"], width=500)
-            else: 
-                st.markdown(display_text)
+                    if p["type"]=="image_url": st.image(p["image_url"]["url"], width=400)
+            else: st.markdown(d)
 
-    # 3. File Upload
+    # 3. Upload File (เพิ่มรองรับไฟล์เสียง) 🎙️
     with st.container():
-        uploaded_file = st.file_uploader("📎 แนบไฟล์", label_visibility="collapsed")
-        file_context = ""
-        file_image_data = None
+        # 🔥 เพิ่มประเภทไฟล์: wav, mp3, m4a
+        uploaded_file = st.file_uploader("แนบไฟล์ (รูป/เอกสาร/เสียง)", type=["png", "jpg", "jpeg", "pdf", "txt", "docx", "wav", "mp3", "m4a"], label_visibility="collapsed")
+        f_ctx, f_img = "", None
+        
         if uploaded_file:
-            st.success(f"แนบไฟล์: {uploaded_file.name}")
+            st.toast(f"✅ แนบไฟล์: {uploaded_file.name}")
+            
+            # กรณีไฟล์รูป
             if "image" in uploaded_file.type:
-                file_image_data = utils.encode_image(uploaded_file)
+                f_img = utils.encode_image(uploaded_file)
+            
+            # กรณีไฟล์เสียง (ใหม่!)
+            elif "audio" in uploaded_file.type:
+                with st.spinner("🎧 กำลังแกะเสียงจากไฟล์... (รอสักครู่)"):
+                    # ใช้ฟังก์ชันเดิมที่มีอยู่แล้ว
+                    transcribed_text = utils.transcribe_audio(uploaded_file.getvalue(), api_key)
+                    if transcribed_text:
+                        f_ctx = f"นี่คือข้อความที่แกะจากไฟล์เสียง {uploaded_file.name}:\n\n{transcribed_text}"
+                    else:
+                        st.error("แกะเสียงไม่ได้ครับ")
+
+            # กรณีเอกสาร
             else:
-                file_context = utils.extract_file(uploaded_file)
+                f_ctx = utils.extract_file(uploaded_file)
 
-    # 4. Input & Logic
-    if prompt := st.chat_input("พิมพ์ข้อความ... หรือ /search", key="main_input"):
-        
-        real_payload = prompt
-        display_payload = prompt # สิ่งที่จะโชว์ในแชท
+    # 4. Chat Input
+    prompt = st.chat_input("พิมพ์ข้อความ... หรือแปะลิงก์ YouTube")
 
-        # --- ตรวจจับฟีเจอร์ ---
-        
-        # 📺 1. YouTube
+    if prompt:
+        real_load = prompt
+        disp_load = prompt
+
+        # Feature: YouTube
         if "youtube.com" in prompt or "youtu.be" in prompt:
-            st.toast("📺 กำลังแกะเนื้อหาคลิป YouTube...", icon="⏳")
-            with st.spinner("กำลังดูดเสียงและแกะเนื้อหา (ใช้เวลาสักครู่)..."):
+            st.toast("กำลังแกะคลิป...", icon="📺")
+            with st.spinner("Analyzing..."):
                 transcript = utils.get_youtube_content(prompt, api_key)
-                if transcript:
-                    real_payload = f"สรุปคลิปนี้ให้หน่อย (ภาษาไทย):\n\n{transcript}"
-                    st.toast("✅ แกะเนื้อหาเสร็จแล้ว!", icon="🎉")
-                else:
-                    st.error("แกะเนื้อหาไม่ได้ครับ (เช็คว่ามี ffmpeg.exe หรือยัง?)")
-                    st.stop()
-        
-        # 🌐 2. Search
-        elif prompt.startswith("/search"):
-            st.toast("🌐 กำลังค้นหาข้อมูล...", icon="🔍")
-            query = prompt.replace("/search", "").strip()
-            web_result = utils.search_web(query)
-            real_payload = f"User asked: {query}\n\nSearch Results:\n{web_result}\n\nAnswer the user based on results:"
-            st.toast("✅ ค้นหาเสร็จสิ้น!", icon="🎉")
+                if transcript: real_load = f"สรุปคลิปนี้ (ไทย):\n{transcript}"
+                else: st.error("แกะคลิปไม่ได้ (ตรวจสอบ FFmpeg)"); st.stop()
 
-        # 🖼️ 3. Image/File
-        elif file_image_data:
-            real_payload = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{file_image_data}"}}]
-        elif file_context:
-            real_payload = f"{prompt}\n\n[File Content]:\n{file_context}"
+        # Feature: File Attachment
+        elif f_img: real_load = [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{f_img}"}}]
+        elif f_ctx: real_load = f"{prompt}\n\n---\n{f_ctx}" # แนบเนื้อหาไฟล์ (Text/Audio Transcript)
 
-        # บันทึกและ Rerun
-        st.session_state.messages.append({"role": "user", "content": real_payload, "display": display_payload})
+        # Save & Run
+        st.session_state.messages.append({"role": "user", "content": real_load, "display": disp_load})
         st.rerun()
 
-   # 5. AI Response
+    # 5. AI Reply
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        
         with st.chat_message("assistant", avatar="logo.png"):
             try:
                 client = Groq(api_key=api_key)
-                msgs = [{"role": "system", "content": config.SYSTEM_PROMPT}]
                 
-                # History Loop
+                # 🔥 ใช้ System Prompt ตามโหมดที่เลือก
+                system_prompt = config.PERSONAS[st.session_state.current_persona]
+                
+                msgs = [{"role": "system", "content": system_prompt}]
                 for m in st.session_state.messages[:-1]:
-                    c = m["content"]
+                    c = m.get("content")
                     if isinstance(c, list): c = "".join([x["text"] for x in c if x["type"]=="text"])
-                    msgs.append({"role": m["role"], "content": c})
+                    if c: msgs.append({"role": m["role"], "content": str(c)})
                 
-                # Last Message
-                last_msg = st.session_state.messages[-1]["content"]
-                msgs.append({"role": "user", "content": last_msg})
+                last = st.session_state.messages[-1]["content"]
+                msgs.append({"role": "user", "content": last})
                 
-                # 🔥 แก้ตรงนี้: ใช้โมเดล Llama 4 Scout (ตัวใหม่ล่าสุด)
-                if isinstance(last_msg, list):
-                    model = "meta-llama/llama-4-scout-17b-16e-instruct"
-                else:
-                    model = "llama-3.3-70b-versatile"
+                model = "meta-llama/llama-4-scout-17b-16e-instruct" if isinstance(last, list) else "llama-3.3-70b-versatile"
                 
-                stream = client.chat.completions.create(messages=msgs, model=model, temperature=0.7, max_tokens=4000, stream=True)
-                text_box = st.empty()
-                full_response = ""
-                for chunk in stream:
-                    if chunk.choices and chunk.choices[0].delta.content:
-                        full_response += chunk.choices[0].delta.content
-                        text_box.markdown(full_response + "▌")
-                text_box.markdown(full_response)
-                
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                stream = client.chat.completions.create(messages=msgs, model=model, stream=True)
+                box = st.empty()
+                full = ""
+                for ch in stream:
+                    if ch.choices[0].delta.content:
+                        full += ch.choices[0].delta.content
+                        box.markdown(full + "▌")
+                box.markdown(full)
+                st.session_state.messages.append({"role": "assistant", "content": full})
                 history.save_chat(st.session_state.session_id, st.session_state.messages)
-            except Exception as e: st.error(f"Error: {e}")
+            except Exception as e: st.error(str(e))

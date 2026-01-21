@@ -6,7 +6,6 @@ from groq import Groq
 import docx
 import pdfplumber
 from youtube_transcript_api import YouTubeTranscriptApi
-from duckduckgo_search import DDGS
 import re
 import yt_dlp
 import os
@@ -32,7 +31,7 @@ def extract_file(uploaded_file):
             except: return uploaded_file.getvalue().decode("tis-620")
     except Exception as e: return f"อ่านไฟล์ไม่ได้ครับ: {e}"
 
-# --- 2. ฟังก์ชัน "หูทิพย์" ---
+# --- 2. ฟังก์ชัน "หูทิพย์" (Transcribe) ---
 def transcribe_audio(audio_bytes, api_key):
     try:
         client = Groq(api_key=api_key)
@@ -47,7 +46,7 @@ def transcribe_audio(audio_bytes, api_key):
         return transcription
     except: return None
 
-# --- 3. ฟังก์ชัน "ปากแจ๋ว" ---
+# --- 3. ฟังก์ชัน "ปากแจ๋ว" (TTS) ---
 def text_to_speech(text, lang='th'):
     try:
         tts = gTTS(text=text, lang=lang, slow=False)
@@ -57,32 +56,28 @@ def text_to_speech(text, lang='th'):
         return audio_fp
     except: return None
 
-# --- 4. 🔥 ฟังก์ชันดูดคลิป (อัปเกรด: อ่านชื่อช่องก่อน!) ---
+# --- 4. ฟังก์ชันดูดคลิป (YouTube) ---
 def get_youtube_content(url, api_key):
     metadata_text = ""
-    
-    # 0. 🔥 ดึงข้อมูล Metadata (ชื่อช่อง, ชื่อคลิป) ก่อนเลย
+    # พยายามดึงชื่อคลิป
     try:
         with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-            info = ydl.extract_info(url, download=False) # ดึงข้อมูลเฉยๆ ไม่โหลด
+            info = ydl.extract_info(url, download=False)
             video_title = info.get('title', 'ไม่ระบุชื่อคลิป')
             channel_name = info.get('uploader', 'ไม่ระบุชื่อช่อง')
-            view_count = info.get('view_count', 0)
-            metadata_text = f"📌 ข้อมูลคลิป:\n- ชื่อคลิป: {video_title}\n- เจ้าของช่อง: {channel_name}\n- ยอดวิว: {view_count:,}\n\n"
-    except Exception as e:
-        print(f"ดึง Metadata ไม่ได้: {e}")
+            metadata_text = f"📌 ข้อมูลคลิป:\n- ชื่อคลิป: {video_title}\n- เจ้าของช่อง: {channel_name}\n\n"
+    except: pass
 
-    # 1. ลองหาซับไตเติ้ล
+    # วิธี 1: ลองดึงซับไตเติ้ล
     try:
         video_id = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
         if video_id:
             transcript = YouTubeTranscriptApi.get_transcript(video_id.group(1), languages=['th', 'en'])
             text = " ".join([t['text'] for t in transcript])
-            return f"{metadata_text}📜 (แกะจากซับไตเติ้ล):\n{text[:15000]}"
-    except:
-        pass 
+            return f"{metadata_text}📜 (แกะจากซับ):\n{text[:15000]}"
+    except: pass 
 
-    # 2. ถ้าไม่มีซับ -> ใช้หูฟังแกะเสียง (FFmpeg)
+    # วิธี 2: ถ้าไม่มีซับ ให้โหลดเสียงมาแกะ (ใช้ FFmpeg)
     try:
         ydl_opts = {
             'format': 'bestaudio/best',
@@ -91,7 +86,6 @@ def get_youtube_content(url, api_key):
             'ffmpeg_location': '.', 
             'quiet': True
         }
-        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
             
@@ -104,22 +98,8 @@ def get_youtube_content(url, api_key):
                     response_format="text"
                 )
             os.remove('temp_audio.mp3')
-            return f"{metadata_text}🎧 (แกะจากเสียงในคลิป):\n{transcription}"
+            return f"{metadata_text}🎧 (แกะจากเสียง):\n{transcription}"
     except Exception as e:
-        return f"เกิดข้อผิดพลาด: {e}"
+        return f"เกิดข้อผิดพลาดในการแกะคลิป: {e}"
     
     return None
-
-# --- 5. ฟังก์ชันค้นหา ---
-def search_web(query):
-    try:
-        results = DDGS().text(query, region='wt-wt', safesearch='off', max_results=3)
-        results_list = list(results)
-        if not results_list: return "ไม่พบข้อมูลครับ"
-        
-        summary = ""
-        for res in results_list:
-            summary += f"- {res['title']}: {res['body']}\n"
-        return summary
-    except Exception as e:
-        return f"ค้นหาไม่ได้ชั่วคราว: {e}"
