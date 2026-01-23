@@ -1,10 +1,12 @@
 streamlit
 groq
-python-dotenv
 pandas
-gTTS
-python-docx
-pdfplumber
-youtube-transcript-api
+python-dotenv
 duckduckgo-search
+youtube-transcript-api
 yt-dlp
+gTTS
+pdfplumber
+openpyxl
+tabulate
+python-docx
